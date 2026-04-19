@@ -6,13 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"time"
 )
 
 var ExecCommand = exec.Command
-var SyscallExec = syscall.Exec
-var ExecLookPath = exec.LookPath
 
 // DropletConfig holds the configuration for a DigitalOcean Droplet.
 type DropletConfig struct {
@@ -175,9 +172,8 @@ func (m *manager) SSH(name string, user string, port int, keyFile string) error 
 	}
 
 	sshArgs := []string{
-		"ssh",
 		"-o", "StrictHostKeyChecking=no",
-		"-o", "UserKnownHostsFile=/dev/null",
+		"-o", "UserKnownHostsFile=" + os.DevNull,
 		"-p", fmt.Sprintf("%d", port),
 	}
 	if keyFile != "" {
@@ -185,12 +181,11 @@ func (m *manager) SSH(name string, user string, port int, keyFile string) error 
 	}
 	sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", user, ip))
 
-	sshPath, err := ExecLookPath("ssh")
-	if err != nil {
-		return fmt.Errorf("ssh not found in PATH: %w", err)
-	}
-
-	return SyscallExec(sshPath, sshArgs, os.Environ())
+	cmd := ExecCommand("ssh", sshArgs...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func (m *manager) Status(name string) (*DropletState, error) {
